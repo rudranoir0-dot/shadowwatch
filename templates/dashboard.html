@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShadowWatch Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a1a;
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            min-height: 100vh;
+        }
+        .header {
+            background: #0d0d2b;
+            border-bottom: 1px solid #1a1a4e;
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { color: #00d4ff; font-size: 22px; letter-spacing: 4px; }
+        .status { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .dot {
+            width: 10px; height: 10px;
+            border-radius: 50%; background: #00ff88;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+        }
+        .container { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px; margin-bottom: 24px;
+        }
+        .card {
+            background: #0d0d2b;
+            border: 1px solid #1a1a4e;
+            border-radius: 8px; padding: 20px;
+        }
+        .card .label {
+            font-size: 11px; color: #888;
+            letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px;
+        }
+        .card .value { font-size: 32px; font-weight: bold; color: #00d4ff; }
+        .card .value.danger { color: #ff4444; }
+        .card .value.success { color: #00ff88; }
+        .card .value.warning { color: #ffaa00; }
+        .grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 16px; margin-bottom: 24px;
+        }
+        .panel {
+            background: #0d0d2b;
+            border: 1px solid #1a1a4e;
+            border-radius: 8px; padding: 20px;
+        }
+        .panel h3 {
+            color: #00d4ff; font-size: 13px;
+            letter-spacing: 2px; margin-bottom: 16px;
+            border-bottom: 1px solid #1a1a4e; padding-bottom: 8px;
+        }
+        .event {
+            padding: 8px 12px; margin-bottom: 6px;
+            border-radius: 4px; font-size: 12px; border-left: 3px solid #333;
+        }
+        .event.danger { background: rgba(255,68,68,0.1); border-left-color: #ff4444; color: #ff8888; }
+        .event.success { background: rgba(0,255,136,0.05); border-left-color: #00ff88; color: #88ffcc; }
+        .event.info { background: rgba(0,212,255,0.05); border-left-color: #00d4ff; color: #88ddff; }
+        .event.critical { background: rgba(255,0,0,0.2); border-left-color: #ff0000; color: #ff4444; font-weight: bold; }
+        .baseline-item {
+            display: flex; justify-content: space-between;
+            padding: 10px 0; border-bottom: 1px solid #1a1a4e; font-size: 13px;
+        }
+        .baseline-item .key { color: #888; }
+        .baseline-item .val { color: #00d4ff; }
+        .risk-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+        .risk-bar .bar-bg {
+            flex: 1; height: 8px; background: #1a1a4e;
+            border-radius: 4px; overflow: hidden;
+        }
+        .risk-bar .bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+        .reports-list a {
+            display: block; color: #00d4ff; text-decoration: none;
+            padding: 8px 12px; background: rgba(0,212,255,0.05);
+            border-radius: 4px; margin-bottom: 6px;
+            font-size: 12px; border: 1px solid #1a1a4e;
+        }
+        .reports-list a:hover { background: rgba(0,212,255,0.1); }
+        .refresh-btn {
+            background: #00d4ff; color: #0a0a1a; border: none;
+            padding: 8px 20px; border-radius: 4px; cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold; letter-spacing: 1px; font-size: 12px;
+        }
+        .refresh-btn:hover { background: #00aacc; }
+        .threat-LOW { background: rgba(0,255,136,0.2); color: #00ff88; padding: 4px 12px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .threat-MEDIUM { background: rgba(255,170,0,0.2); color: #ffaa00; padding: 4px 12px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .threat-HIGH { background: rgba(255,68,68,0.2); color: #ff4444; padding: 4px 12px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .events-scroll { max-height: 300px; overflow-y: auto; }
+        .events-scroll::-webkit-scrollbar { width: 4px; }
+        .events-scroll::-webkit-scrollbar-track { background: #0a0a1a; }
+        .events-scroll::-webkit-scrollbar-thumb { background: #1a1a4e; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>SHADOWWATCH</h1>
+        <div class="status">
+            <div class="dot"></div>
+            <span>MONITORING ACTIVE</span>
+            <span style="color:#444;margin:0 8px">|</span>
+            <span id="current-time"></span>
+            <button class="refresh-btn" style="margin-left:16px" onclick="loadAll()">REFRESH</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="cards">
+            <div class="card">
+                <div class="label">Total Anomalies</div>
+                <div class="value danger" id="total-anomalies">-</div>
+            </div>
+            <div class="card">
+                <div class="label">Normal Checks</div>
+                <div class="value success" id="normal-checks">-</div>
+            </div>
+            <div class="card">
+                <div class="label">Avg Risk Score</div>
+                <div class="value warning" id="avg-risk">-</div>
+            </div>
+            <div class="card">
+                <div class="label">Threat Level</div>
+                <div class="value" id="threat-level">-</div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="panel">
+                <h3>LIVE EVENT LOG</h3>
+                <div class="events-scroll" id="events-log">
+                    <div style="color:#444;font-size:12px">Loading...</div>
+                </div>
+            </div>
+            <div class="panel">
+                <h3>RISK SCORE HISTORY</h3>
+                <div id="risk-bars">
+                    <div style="color:#444;font-size:12px">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="panel">
+                <h3>BEHAVIORAL BASELINE</h3>
+                <div id="baseline-data">
+                    <div style="color:#444;font-size:12px">Loading...</div>
+                </div>
+            </div>
+            <div class="panel">
+                <h3>PDF REPORTS</h3>
+                <div class="reports-list" id="reports-list">
+                    <div style="color:#444;font-size:12px">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateTime() {
+            document.getElementById('current-time').textContent =
+                new Date().toLocaleTimeString();
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        async function loadStats() {
+            const res = await fetch('/api/stats');
+            const data = await res.json();
+            document.getElementById('total-anomalies').textContent = data.total_anomalies;
+            document.getElementById('normal-checks').textContent = data.normal_checks;
+            document.getElementById('avg-risk').textContent = data.avg_risk + '/100';
+            const tl = document.getElementById('threat-level');
+            tl.textContent = data.threat_level;
+            tl.className = 'value threat-' + data.threat_level;
+            const bars = document.getElementById('risk-bars');
+            if (data.risk_scores.length === 0) {
+                bars.innerHTML = '<div style="color:#444;font-size:12px">No data yet</div>';
+                return;
+            }
+            bars.innerHTML = data.risk_scores.map((score, i) => {
+                const color = score >= 50 ? '#ff4444' : score >= 25 ? '#ffaa00' : '#00ff88';
+                return `<div class="risk-bar">
+                    <span style="font-size:11px;color:#888;width:20px">${i+1}</span>
+                    <div class="bar-bg">
+                        <div class="bar-fill" style="width:${score}%;background:${color}"></div>
+                    </div>
+                    <span style="font-size:11px;color:${color};width:40px">${score}/100</span>
+                </div>`;
+            }).join('');
+        }
+
+        async function loadEvents() {
+            const res = await fetch('/api/events');
+            const events = await res.json();
+            const log = document.getElementById('events-log');
+            if (events.length === 0) {
+                log.innerHTML = '<div style="color:#444;font-size:12px">No events yet. Run agent.py first.</div>';
+                return;
+            }
+            log.innerHTML = events.slice().reverse().map(e =>
+                `<div class="event ${e.type}">${e.message}</div>`
+            ).join('');
+        }
+
+        async function loadBaseline() {
+            const res = await fetch('/api/baseline');
+            const data = await res.json();
+            const div = document.getElementById('baseline-data');
+            if (Object.keys(data).length === 0) {
+                div.innerHTML = '<div style="color:#444;font-size:12px">No baseline yet.</div>';
+                return;
+            }
+            const items = [
+                ['Recorded At', data.recorded_at || 'N/A'],
+                ['Avg Typing Gap', data.avg_typing_gap ? data.avg_typing_gap.toFixed(3) + 's' : 'N/A'],
+                ['Avg Mouse Speed', data.avg_mouse_speed ? data.avg_mouse_speed.toFixed(1) + ' px/move' : 'N/A'],
+                ['Active Hours', JSON.stringify(data.active_hours || [])],
+                ['Apps Tracked', (data.typical_apps || []).length],
+            ];
+            div.innerHTML = items.map(([k, v]) =>
+                `<div class="baseline-item"><span class="key">${k}</span><span class="val">${v}</span></div>`
+            ).join('');
+        }
+
+        async function loadReports() {
+            const res = await fetch('/api/reports');
+            const reports = await res.json();
+            const div = document.getElementById('reports-list');
+            if (reports.length === 0) {
+                div.innerHTML = '<div style="color:#444;font-size:12px">No reports yet.</div>';
+                return;
+            }
+            div.innerHTML = reports.map(r =>
+                `<a href="/download/${r}" target="_blank">Download ${r}</a>`
+            ).join('');
+        }
+
+        async function loadAll() {
+            await Promise.all([loadStats(), loadEvents(), loadBaseline(), loadReports()]);
+        }
+
+        loadAll();
+        setInterval(loadAll, 10000);
+    </script>
+</body>
+</html>
